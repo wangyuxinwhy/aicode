@@ -9,5 +9,5 @@ python create_datsets.py <dataset_dir>
 
 
 ## todo
-- [ ] metrics
+- [x] metrics
 - [ ] split notebooks
