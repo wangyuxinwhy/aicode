@@ -16,13 +16,13 @@ class RegWithCodeModel(nn.Module):
 
     def forward(
         self,
-        inpud_ids: torch.Tensor,
+        input_ids: torch.Tensor,
         attention_mask: torch.Tensor,
         md_ratios: torch.Tensor,
         scores: Optional[torch.Tensor] = None,
     ) -> dict[str, torch.Tensor]:
-        hidden_states = self.encoder(inpud_ids, attention_mask)[0][:, 0, :]
-        features = torch.cat((hidden_states, md_ratios), 1)
+        hidden_states = self.encoder(input_ids, attention_mask)[0][:, 0, :]
+        features = torch.cat((hidden_states, md_ratios.unsqueeze(1)), 1)
         pred_scores = self.reg_head(features)
         output = {
             'pred_scores': pred_scores,
