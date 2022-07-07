@@ -24,7 +24,7 @@ class RegWithCodeModel(nn.Module):
     ) -> dict[str, torch.Tensor]:
         hidden_states = self.encoder(input_ids, attention_mask)[0][:, 0, :]
         features = torch.cat((hidden_states, md_ratios.unsqueeze(1)), 1)
-        pred_scores = self.reg_head(features)
+        pred_scores = self.reg_head(features).squeeze()
         output = {
             'pred_scores': pred_scores,
         }
