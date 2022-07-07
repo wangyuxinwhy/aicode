@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from typing import Iterable, Optional, Union
 
 import numpy as np
@@ -8,10 +9,22 @@ import torch
 from torch.utils.data import IterableDataset
 from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 
-from aicode.core import Notebook, RegSample
+from aicode.core import Notebook
 from aicode.utils import clean_code
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class RegSample:
+    notebook_id: str
+    cell_id: str
+    markdown: str
+    codes: list[str]
+    rank: int
+    num_cells: int
+    num_codes: int
+    num_markdowns: int
 
 
 class RegWithCodeDataset(IterableDataset):
@@ -46,6 +59,8 @@ class RegWithCodeDataset(IterableDataset):
                         all_code_source, self.num_code_per_md
                     )
                     reg_sample = RegSample(
+                        notebook_id=notebook.id,
+                        cell_id=cell.id,
                         markdown=cell.source,
                         codes=codes,
                         rank=cell.rank,

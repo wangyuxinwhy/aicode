@@ -4,19 +4,21 @@ from typing import Optional, Union
 import torch
 import yaml
 from cotrain import Trainer, TrainerConfig
-from cotrain.utils.torch import seed_all
 from cotrain.components import RichInspect, RichProgressBar
+from cotrain.utils.torch import seed_all
 from pydantic import BaseModel
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
 from yaml.loader import SafeLoader
 
+from aicode.reg_with_code.component import Scorer
 from aicode.reg_with_code.data import RegWithCodeCollator, RegWithCodeDataset
 from aicode.reg_with_code.model import RegWithCodeModel
 from aicode.utils import load_notebooks_from_disk, split_notebooks
 
 
 class DataConfig(BaseModel):
+    data_path: Path
     batch_size: int = 8
     num_code_per_md: int = 1
     max_samples: Optional[int] = None
@@ -50,8 +52,10 @@ def main(cfg: ExperimentConfig):
     collator = RegWithCodeCollator(
         tokenizer, cfg.data.md_max_length, cfg.data.total_max_length
     )
-    notebooks = load_notebooks_from_disk('dataset/aicode-debug')
-    train_notebooks, valid_notebooks = split_notebooks(notebooks, test_size=0.1, random_seed=cfg.seed)
+    notebooks = load_notebooks_from_disk(cfg.data.data_path)
+    train_notebooks, valid_notebooks = split_notebooks(
+        notebooks, test_size=0.1, random_seed=cfg.seed
+    )
     train_dataset = RegWithCodeDataset(
         train_notebooks, cfg.data.num_code_per_md, cfg.data.max_samples
     )
@@ -79,6 +83,7 @@ def main(cfg: ExperimentConfig):
     components = [
         RichInspect(),
         RichProgressBar(),
+        Scorer(),
     ]
 
     # trainer

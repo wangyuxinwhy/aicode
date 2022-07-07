@@ -29,9 +29,15 @@ def clean_code(code: str):
     return str(code).replace('\\n', '\n')
 
 
-def split_notebooks(notebooks: list[Notebook], test_size: float=0.1, random_seed: int=42):
-    splitter = GroupShuffleSplit(n_splits=1, test_size=test_size, random_state=random_seed)
-    train_ind, val_ind = next(splitter.split(notebooks, groups=[ i.ancestor_id for i in notebooks ]))
-    train_notebooks = [ notebooks[i] for i in train_ind ]
-    val_notebooks = [ notebooks[i] for i in val_ind ]
+def split_notebooks(
+    notebooks: list[Notebook], test_size: float = 0.1, random_seed: int = 42
+):
+    splitter = GroupShuffleSplit(
+        n_splits=1, test_size=test_size, random_state=random_seed
+    )
+    train_ind, val_ind = next(
+        splitter.split(notebooks, groups=[i.ancestor_id for i in notebooks])
+    )
+    train_notebooks = [notebooks[i] for i in train_ind]
+    val_notebooks = [notebooks[i] for i in val_ind]
     return train_notebooks, val_notebooks

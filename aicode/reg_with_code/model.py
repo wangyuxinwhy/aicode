@@ -11,8 +11,9 @@ class RegWithCodeModel(nn.Module):
     def __init__(self, model_path: str):
         super().__init__()
         self.encoder = AutoModel.from_pretrained(model_path)
-        self.reg_head = nn.Linear(769, 1)
-        self.criterion = nn.MSELoss()
+        head_size = self.encoder.config.hidden_size + 1
+        self.reg_head = nn.Linear(head_size, 1)
+        self.criterion = nn.L1Loss()
 
     def forward(
         self,
