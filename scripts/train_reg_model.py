@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import Optional, Union
 
@@ -15,6 +16,9 @@ from aicode.reg_with_code.component import Scorer
 from aicode.reg_with_code.data import RegWithCodeCollator, RegWithCodeDataset
 from aicode.reg_with_code.model import RegWithCodeModel
 from aicode.utils import load_notebooks_from_disk, split_notebooks
+
+logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class DataConfig(BaseModel):
@@ -46,6 +50,7 @@ class ExperimentConfig(BaseModel):
 
 def main(cfg: ExperimentConfig):
     seed_all(cfg.seed)
+    logger.info('Start Training, config:\n {}', cfg)
 
     # tokenzier
     tokenizer = AutoTokenizer.from_pretrained(cfg.pretrained_model_path)
@@ -54,6 +59,7 @@ def main(cfg: ExperimentConfig):
     collator = RegWithCodeCollator(
         tokenizer, cfg.data.md_max_length, cfg.data.total_max_length
     )
+    logger.info('Loading notebooks from %s', cfg.data.data_path)
     notebooks = load_notebooks_from_disk(cfg.data.data_path)
     train_notebooks, valid_notebooks = split_notebooks(
         notebooks, test_size=cfg.data.test_size, random_seed=cfg.seed
@@ -79,6 +85,7 @@ def main(cfg: ExperimentConfig):
     )
 
     # Model
+    logger.info('Loading model from %s', cfg.pretrained_model_path)
     model = RegWithCodeModel(cfg.pretrained_model_path)
 
     # Optimizer

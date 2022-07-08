@@ -45,6 +45,7 @@ class RegWithCodeDataset(IterableDataset):
         self._used = False
 
     def sample_code(self) -> dict[str, list[str]]:
+        logger.info('Sampling code from notebooks')
         notebook_id_codes_map = {}
         for notebook in self.notebooks:
             all_code_source = [
@@ -62,6 +63,7 @@ class RegWithCodeDataset(IterableDataset):
         return notebook_id_codes_map
 
     def generate_reg_samples(self) -> list[RegSample]:
+        logger.info('Generating reg samples...')
         reg_samples = []
         count = 0
         for notebook in self.notebooks:
