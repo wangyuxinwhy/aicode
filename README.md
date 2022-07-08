@@ -10,4 +10,6 @@ python create_datsets.py <dataset_dir>
 
 ## todo
 - [x] metrics
-- [ ] split notebooks
+- [x] split notebooks
+- [ ] 修复 metrics bug
+- [ ] 做好 EDA 的工作

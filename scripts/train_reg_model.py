@@ -50,7 +50,7 @@ class ExperimentConfig(BaseModel):
 
 def main(cfg: ExperimentConfig):
     seed_all(cfg.seed)
-    logger.info('Start Training, config:\n {}', cfg)
+    logger.info(f'Start Training, config:\n {cfg}')
 
     # tokenzier
     tokenizer = AutoTokenizer.from_pretrained(cfg.pretrained_model_path)
