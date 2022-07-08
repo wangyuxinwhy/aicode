@@ -25,6 +25,7 @@ class DataConfig(BaseModel):
     dynamic_sample: bool = False
     md_max_length: int = 128
     total_max_length: int = 512
+    test_size: float = 0.1
 
 
 class ExperimentConfig(BaseModel):
@@ -55,7 +56,7 @@ def main(cfg: ExperimentConfig):
     )
     notebooks = load_notebooks_from_disk(cfg.data.data_path)
     train_notebooks, valid_notebooks = split_notebooks(
-        notebooks, test_size=0.1, random_seed=cfg.seed
+        notebooks, test_size=cfg.data.test_size, random_seed=cfg.seed
     )
     train_dataset = RegWithCodeDataset(
         train_notebooks,
@@ -103,14 +104,15 @@ def main(cfg: ExperimentConfig):
 
 
 if __name__ == '__main__':
-    import argparse
-
-    debug = True
+    debug = False
     if debug:
-        config = ExperimentConfig.from_yaml(
-            '/Users/wangyuxin/workspace/kaggle/aicode/configs/debug.yaml'
+        config = ExperimentConfig(
+            data=DataConfig(data_path=Path('../dataset/aicode-debug-100')),
+            trainer=TrainerConfig(),
         )
     else:
+        import argparse
+
         parser = argparse.ArgumentParser()
         parser.add_argument(
             'config', type=str, help='path to yaml config file'
