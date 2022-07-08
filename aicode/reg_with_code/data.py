@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import random
 from dataclasses import dataclass
 from typing import Iterable, Optional, Union
 
@@ -31,54 +32,65 @@ class RegWithCodeDataset(IterableDataset):
     def __init__(
         self,
         notebooks: Iterable[Notebook],
-        num_code_per_md: int,
+        num_code_per_md: int = 10,
+        dynamic_sample: bool = False,
         max_samples: Optional[int] = None,
     ):
         self.notebooks = notebooks
         self.num_code_per_md = num_code_per_md
-        self.max_samples = max_samples or self.get_num_samples()
+        self.dynamic_sample = dynamic_sample
+        self.max_samples = max_samples
+        self.notebook_id_codes_map = self.sample_code()
+        self.reg_samples = self.generate_reg_samples()
+        self._used = False
 
-    def get_num_samples(self) -> int:
-        logger.info('num_samples is not specified, try to calculate it')
-        count = 0
-        for notebook in self.notebooks:
-            for cell in notebook.cells:
-                if cell.is_markdown:
-                    count += 1
-        return count
-
-    def generate_reg_samples(self):
-        count = 0
+    def sample_code(self) -> dict[str, list[str]]:
+        notebook_id_codes_map = {}
         for notebook in self.notebooks:
             all_code_source = [
                 cell.source for cell in notebook.cells if cell.is_code
             ]
+            if self.dynamic_sample:
+                codes = self.dynamic_sample_codes(
+                    all_code_source, self.num_code_per_md
+                )
+            else:
+                codes = self.sample_codes(
+                    all_code_source, self.num_code_per_md
+                )
+            notebook_id_codes_map[notebook.id] = codes
+        return notebook_id_codes_map
+
+    def generate_reg_samples(self) -> list[RegSample]:
+        reg_samples = []
+        count = 0
+        for notebook in self.notebooks:
             for cell in notebook.cells:
+                num_cells = len(notebook.cells)
+                num_codes = sum([i.is_code for i in notebook.cells])
+                num_markdowns = num_cells - num_codes
                 if cell.is_markdown:
-                    codes = self.sample_codes(
-                        all_code_source, self.num_code_per_md
-                    )
                     reg_sample = RegSample(
                         notebook_id=notebook.id,
                         cell_id=cell.id,
                         markdown=cell.source,
-                        codes=codes,
+                        codes=self.notebook_id_codes_map[notebook.id],
                         rank=cell.rank,
-                        num_cells=len(notebook.cells),
-                        num_codes=len(all_code_source),
-                        num_markdowns=len(notebook.cells)
-                        - len(all_code_source),
+                        num_cells=num_cells,
+                        num_codes=num_codes,
+                        num_markdowns=num_markdowns,
                     )
-                    yield reg_sample
+                    reg_samples.append(reg_sample)
                     count += 1
-                    if count >= self.max_samples:
-                        return
+                    if (self.max_samples is not None) and (
+                        count >= self.max_samples
+                    ):
+                        return reg_samples
+        return reg_samples
 
-    def __iter__(self):
-        return self.generate_reg_samples()
-
-    def __len__(self):
-        return self.max_samples
+    def refresh(self):
+        self.notebook_id_codes_map = self.sample_code()
+        self.reg_samples = self.generate_reg_samples()
 
     @staticmethod
     def sample_codes(codes: list[str], n: int) -> list[str]:
@@ -95,6 +107,32 @@ class RegWithCodeDataset(IterableDataset):
             if codes[-1] not in results:
                 results[-1] = codes[-1]
             return results
+
+    @staticmethod
+    def dynamic_sample_codes(codes: list[str], n: int) -> list[str]:
+        codes = [clean_code(code)[:200] for code in codes]
+        if n >= len(codes):
+            return [code for code in codes]
+        else:
+            results = []
+            step = len(codes) // n
+            idx = 0
+            while (idx + step) < len(codes):
+                sampled_idx = random.randint(idx, idx + step)
+                results.append(codes[sampled_idx])
+                idx += step
+            if codes[-1] != results[-1]:
+                results[-1] = codes[-1]
+            return results
+
+    def __iter__(self):
+        if self._used:
+            self.refresh()
+        self._used = True
+        return iter(self.reg_samples)
+
+    def __len__(self):
+        return len(self.reg_samples)
 
 
 class RegWithCodeCollator:

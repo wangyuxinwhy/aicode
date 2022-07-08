@@ -22,6 +22,7 @@ class DataConfig(BaseModel):
     batch_size: int = 8
     num_code_per_md: int = 1
     max_samples: Optional[int] = None
+    dynamic_sample: bool = False
     md_max_length: int = 128
     total_max_length: int = 512
 
@@ -57,10 +58,13 @@ def main(cfg: ExperimentConfig):
         notebooks, test_size=0.1, random_seed=cfg.seed
     )
     train_dataset = RegWithCodeDataset(
-        train_notebooks, cfg.data.num_code_per_md, cfg.data.max_samples
+        train_notebooks,
+        cfg.data.num_code_per_md,
+        cfg.data.dynamic_sample,
+        cfg.data.max_samples,
     )
     valid_dataset = RegWithCodeDataset(
-        valid_notebooks, cfg.data.num_code_per_md
+        valid_notebooks, cfg.data.num_code_per_md, False, None
     )
     train_dataloader = DataLoader(
         train_dataset,
