@@ -1,8 +1,10 @@
+from __future__ import annotations
 from dataclasses import dataclass
 from typing import cast
 
 from cotrain import Trainer, after, op
 
+from aicode.core import Notebook
 from aicode.metric import kendall_tau
 from aicode.reg_with_code.data import RegSample
 
@@ -16,7 +18,9 @@ class RegResult:
 
 
 class Scorer:
-    def __init__(self) -> None:
+    def __init__(self, notebooks: list[Notebook]) -> None:
+        self.notebooks = notebooks
+        self.groud_truth_cell_orders_map = {notebook.id: [cell.id for cell in notebook.cells] for notebook in self.notebooks}
         self.pred_scores: list[float] = []
         self.results: list[RegResult] = []
 
@@ -32,9 +36,9 @@ class Scorer:
 
         if trainer.valid_dataloader is None:
             raise ValueError('valid_dataloader is not specified')
-        assert len(trainer.valid_dataloader.dataset) == len(
+        assert len(trainer.valid_dataloader.dataset) == len(  # type: ignore
             self.pred_scores
-        )   # type: ignore
+        )
 
         results: list[RegResult] = []
         for reg_sample, pred_score in zip(trainer.valid_dataloader.dataset, self.pred_scores):  # type: ignore
@@ -47,22 +51,32 @@ class Scorer:
                     pred_score=pred_score,
                 )
             )
+        
+        pred_cell_orders_map = self.construct_pred_cell_orders(results)
+        
+        preds = [pred_cell_orders_map[k] for k in self.groud_truth_cell_orders_map.keys()]
+        targets = [v for _, v in self.groud_truth_cell_orders_map.items()]
+        score = kendall_tau(targets, preds)
+        self.refresh()
+        return op.dict_update, {'score': score}
 
-        _map = {}
+    def refresh(self) -> None:
+        self.pred_scores: list[float] = []
+
+    def construct_pred_cell_orders(self, results: list[RegResult]) -> dict[str, list[str]]:
+
+        pred_cell_orders_map = {}
         for result in results:
-            if result.notebook_id not in _map:
-                _map[result.notebook_id] = {'pred': [], 'ground_truth': []}
-            _map[result.notebook_id]['pred'].append(
+            if result.notebook_id not in pred_cell_orders_map:
+                pred_cell_orders_map[result.notebook_id] = []
+            pred_cell_orders_map[result.notebook_id].append(
                 (result.cell_id, result.pred_score)
             )
-            _map[result.notebook_id]['ground_truth'].append(
-                (result.cell_id, result.rank)
-            )
-        for v in _map.values():
-            v['pred'] = sorted(v['pred'], key=lambda x: x[1])
-            v['ground_truth'] = sorted(v['ground_truth'], key=lambda x: x[1])
-        gt = [[i[0] for i in v['ground_truth']] for v in _map.values()]
-        pred = [[i[0] for i in v['pred']] for v in _map.values()]
-        score = kendall_tau(gt, pred)
-        self.pred_scores: list[float] = []
-        return op.dict_update, {'score': score}
+        for notebook in self.notebooks:
+            code_cells = [cell.id for cell in notebook.cells if cell.is_code]
+            num_codes = len(code_cells)
+            code_cells = [(cell, idx, num_codes) for idx, cell in enumerate(code_cells)]
+            pred_cell_orders_map[notebook.id].extend(code_cells)
+        for k, v in pred_cell_orders_map.items():
+            pred_cell_orders_map[k] = [i[0] for i in sorted(v, key=lambda x: x[1])]
+        return pred_cell_orders_map

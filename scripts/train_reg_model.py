@@ -95,7 +95,7 @@ def main(cfg: ExperimentConfig):
     components = [
         RichInspect(),
         RichProgressBar(),
-        Scorer(),
+        Scorer(valid_notebooks),
     ]
 
     # trainer
