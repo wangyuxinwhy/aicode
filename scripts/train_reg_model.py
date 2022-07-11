@@ -12,12 +12,14 @@ from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
 from yaml.loader import SafeLoader
 
-from aicode.reg_with_code.component import Scorer
+from aicode.reg_with_code.component import RegWithCodeDatasetRefresh, Scorer
 from aicode.reg_with_code.data import RegWithCodeCollator, RegWithCodeDataset
 from aicode.reg_with_code.model import RegWithCodeModel
 from aicode.utils import load_notebooks_from_disk, split_notebooks
 
-logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.INFO)
+logging.basicConfig(
+    format='%(asctime)s - %(levelname)s - %(message)s', level=logging.INFO
+)
 logger = logging.getLogger(__name__)
 
 
@@ -27,6 +29,7 @@ class DataConfig(BaseModel):
     num_code_per_md: int = 1
     max_samples: Optional[int] = None
     dynamic_sample: bool = False
+    shuffle: bool = False
     md_max_length: int = 128
     total_max_length: int = 512
     test_size: float = 0.1
@@ -77,6 +80,7 @@ def main(cfg: ExperimentConfig):
         train_dataset,
         batch_size=cfg.data.batch_size,
         collate_fn=collator.collate_fn,
+        shuffle=cfg.data.shuffle,
     )
     valid_dataloader = DataLoader(
         valid_dataset,
@@ -96,6 +100,7 @@ def main(cfg: ExperimentConfig):
         RichInspect(),
         RichProgressBar(),
         Scorer(valid_notebooks),
+        RegWithCodeDatasetRefresh(),
     ]
 
     # trainer

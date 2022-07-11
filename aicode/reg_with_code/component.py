@@ -1,12 +1,16 @@
 from __future__ import annotations
+
+import logging
 from dataclasses import dataclass
 from typing import cast
 
-from cotrain import Trainer, after, op
+from cotrain import Trainer, after, before, op
 
 from aicode.core import Notebook
 from aicode.metric import kendall_tau
-from aicode.reg_with_code.data import RegSample
+from aicode.reg_with_code.data import RegSample, RegWithCodeDataset
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -20,7 +24,10 @@ class RegResult:
 class Scorer:
     def __init__(self, notebooks: list[Notebook]) -> None:
         self.notebooks = notebooks
-        self.groud_truth_cell_orders_map = {notebook.id: [cell.id for cell in notebook.cells] for notebook in self.notebooks}
+        self.groud_truth_cell_orders_map = {
+            notebook.id: [cell.id for cell in notebook.cells]
+            for notebook in self.notebooks
+        }
         self.pred_scores: list[float] = []
         self.results: list[RegResult] = []
 
@@ -51,10 +58,13 @@ class Scorer:
                     pred_score=pred_score,
                 )
             )
-        
+
         pred_cell_orders_map = self.construct_pred_cell_orders(results)
-        
-        preds = [pred_cell_orders_map[k] for k in self.groud_truth_cell_orders_map.keys()]
+
+        preds = [
+            pred_cell_orders_map[k]
+            for k in self.groud_truth_cell_orders_map.keys()
+        ]
         targets = [v for _, v in self.groud_truth_cell_orders_map.items()]
         score = kendall_tau(targets, preds)
         self.refresh()
@@ -63,7 +73,9 @@ class Scorer:
     def refresh(self) -> None:
         self.pred_scores: list[float] = []
 
-    def construct_pred_cell_orders(self, results: list[RegResult]) -> dict[str, list[str]]:
+    def construct_pred_cell_orders(
+        self, results: list[RegResult]
+    ) -> dict[str, list[str]]:
 
         pred_cell_orders_map = {}
         for result in results:
@@ -75,8 +87,26 @@ class Scorer:
         for notebook in self.notebooks:
             code_cells = [cell.id for cell in notebook.cells if cell.is_code]
             num_codes = len(code_cells)
-            code_cells = [(cell, idx, num_codes) for idx, cell in enumerate(code_cells)]
+            code_cells = [
+                (cell, idx, num_codes) for idx, cell in enumerate(code_cells)
+            ]
             pred_cell_orders_map[notebook.id].extend(code_cells)
         for k, v in pred_cell_orders_map.items():
-            pred_cell_orders_map[k] = [i[0] for i in sorted(v, key=lambda x: x[1])]
+            pred_cell_orders_map[k] = [
+                i[0] for i in sorted(v, key=lambda x: x[1])
+            ]
         return pred_cell_orders_map
+
+
+class RegWithCodeDatasetRefresh:
+    @before(Trainer.run_epoch)
+    def print_first_sample(self, trainer: Trainer) -> None:
+        print(trainer.train_dataloader.dataset[0])
+        print(trainer.train_dataloader.dataset[1])
+
+    @after(Trainer.run_epoch)
+    def refresh(self, trainer: Trainer) -> None:
+        logger.info('Refresh dataset')
+        dataset = trainer.train_dataloader.dataset
+        dataset = cast(RegWithCodeDataset, dataset)
+        dataset.refresh()

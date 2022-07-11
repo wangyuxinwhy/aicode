@@ -7,7 +7,7 @@ from typing import Iterable, Optional, Union
 
 import numpy as np
 import torch
-from torch.utils.data import IterableDataset
+from torch.utils.data import Dataset
 from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 
 from aicode.core import Notebook
@@ -28,7 +28,7 @@ class RegSample:
     num_markdowns: int
 
 
-class RegWithCodeDataset(IterableDataset):
+class RegWithCodeDataset(Dataset[RegSample]):
     def __init__(
         self,
         notebooks: Iterable[Notebook],
@@ -42,7 +42,6 @@ class RegWithCodeDataset(IterableDataset):
         self.max_samples = max_samples
         self.notebook_id_codes_map = self.sample_code()
         self.reg_samples = self.generate_reg_samples()
-        self._used = False
 
     def sample_code(self) -> dict[str, list[str]]:
         logger.info('Sampling code from notebooks')
@@ -91,8 +90,9 @@ class RegWithCodeDataset(IterableDataset):
         return reg_samples
 
     def refresh(self):
-        self.notebook_id_codes_map = self.sample_code()
-        self.reg_samples = self.generate_reg_samples()
+        if self.dynamic_sample:
+            self.notebook_id_codes_map = self.sample_code()
+            self.reg_samples = self.generate_reg_samples()
 
     @staticmethod
     def sample_codes(codes: list[str], n: int) -> list[str]:
@@ -127,13 +127,10 @@ class RegWithCodeDataset(IterableDataset):
                 results[-1] = codes[-1]
             return results
 
-    def __iter__(self):
-        if self._used:
-            self.refresh()
-        self._used = True
-        return iter(self.reg_samples)
+    def __getitem__(self, index: int) -> RegSample:
+        return self.reg_samples[index]
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.reg_samples)
 
 
