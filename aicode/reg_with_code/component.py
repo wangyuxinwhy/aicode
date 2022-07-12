@@ -88,7 +88,7 @@ class Scorer:
             code_cells = [cell.id for cell in notebook.cells if cell.is_code]
             num_codes = len(code_cells)
             code_cells = [
-                (cell, idx, num_codes) for idx, cell in enumerate(code_cells)
+                (cell, idx / num_codes) for idx, cell in enumerate(code_cells)
             ]
             pred_cell_orders_map[notebook.id].extend(code_cells)
         for k, v in pred_cell_orders_map.items():
