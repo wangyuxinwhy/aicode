@@ -18,7 +18,9 @@ def kendall_tau(ground_truth: list[list[str]], predictions: list[list[str]]):
     total_2max = (
         0  # twice the maximum possible inversions across all instances
     )
+    assert len(ground_truth) == len(predictions)
     for gt, pred in zip(ground_truth, predictions):
+        assert len(gt) == len(pred)
         ranks = [
             gt.index(x) for x in pred
         ]  # rank predicted order in terms of ground truth
