@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Optional, Union
+from typing import Union
 
 import torch
 import yaml
@@ -12,9 +12,9 @@ from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
 from yaml.loader import SafeLoader
 
-from aicode.reg_with_code.component import RegWithCodeDatasetRefresh, Scorer
-from aicode.reg_with_code.data import RegWithCodeCollator, RegWithCodeDataset
-from aicode.reg_with_code.model import RegWithCodeModel
+from aicode.pretrain.component import PretrainDatasetRefresh
+from aicode.pretrain.data import PretrainCollator, PretrainDataset
+from aicode.pretrain.model import PretrainAiCodeModel
 from aicode.utils import load_notebooks_from_disk, split_notebooks
 
 logging.basicConfig(
@@ -25,14 +25,10 @@ logger = logging.getLogger(__name__)
 
 class DataConfig(BaseModel):
     data_path: Path
-    batch_size: int = 8
-    num_code_per_md: int = 1
-    max_samples: Optional[int] = None
-    dynamic_sample: bool = False
-    shuffle: bool = False
-    md_max_length: int = 128
-    total_max_length: int = 512
-    test_size: float = 0.1
+    batch_size: int = 64
+    num_negtive_sampels: int = 2
+    max_length: int = 256
+    test_size: float = 0.05
 
 
 class ExperimentConfig(BaseModel):
@@ -58,39 +54,34 @@ def main(cfg: ExperimentConfig):
     # tokenzier
     tokenizer = AutoTokenizer.from_pretrained(cfg.pretrained_model_path)
 
-    # Data
-    collator = RegWithCodeCollator(
-        tokenizer, cfg.data.md_max_length, cfg.data.total_max_length
-    )
+    # data
+    collator = PretrainCollator(tokenizer, cfg.data.max_length)
     logger.info('Loading notebooks from %s', cfg.data.data_path)
     notebooks = load_notebooks_from_disk(cfg.data.data_path)
     train_notebooks, valid_notebooks = split_notebooks(
         notebooks, test_size=cfg.data.test_size, random_seed=cfg.seed
     )
-    train_dataset = RegWithCodeDataset(
-        train_notebooks,
-        cfg.data.num_code_per_md,
-        cfg.data.dynamic_sample,
-        cfg.data.max_samples,
+    train_dataset = PretrainDataset(
+        train_notebooks, cfg.data.num_negtive_sampels
     )
-    valid_dataset = RegWithCodeDataset(
-        valid_notebooks, cfg.data.num_code_per_md, False, None
+    valid_dataset = PretrainDataset(
+        valid_notebooks, cfg.data.num_negtive_sampels
     )
     train_dataloader = DataLoader(
         train_dataset,
-        batch_size=cfg.data.batch_size,
         collate_fn=collator.collate_fn,
-        shuffle=cfg.data.shuffle,
+        batch_size=cfg.data.batch_size,
+        shuffle=True,
     )
     valid_dataloader = DataLoader(
         valid_dataset,
-        batch_size=cfg.data.batch_size,
         collate_fn=collator.collate_fn,
+        batch_size=cfg.data.batch_size,
     )
 
     # Model
     logger.info('Loading model from %s', cfg.pretrained_model_path)
-    model = RegWithCodeModel(cfg.pretrained_model_path)
+    model = PretrainAiCodeModel(cfg.pretrained_model_path)
 
     # Optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg.lr)
@@ -99,10 +90,8 @@ def main(cfg: ExperimentConfig):
     components = [
         RichInspect(),
         RichProgressBar(),
-        Scorer(valid_notebooks),
-        RegWithCodeDatasetRefresh(),
+        PretrainDatasetRefresh(),
     ]
-
     # trainer
     trainer = Trainer(
         model,
@@ -119,9 +108,7 @@ if __name__ == '__main__':
     debug = True
     if debug:
         config = ExperimentConfig(
-            data=DataConfig(
-                data_path=Path('dataset/aicode-debug-100'), num_code_per_md=10
-            ),
+            data=DataConfig(data_path=Path('dataset/aicode-debug-100')),
             trainer=TrainerConfig(),
             pretrained_model_path='cross-encoder/ms-marco-TinyBERT-L-2',
         )
