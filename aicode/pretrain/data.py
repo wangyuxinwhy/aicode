@@ -163,6 +163,7 @@ class PretrainCollator:
             padding=True,
             truncation=True,
             max_length=self.max_length,
+            return_token_type_ids=True,
         )
         next_labels = torch.tensor(
             [sample.is_next for sample in samples], dtype=torch.long

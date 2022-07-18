@@ -6,13 +6,13 @@ import torch
 import yaml
 from cotrain import Trainer, TrainerConfig
 from cotrain.components import RichInspect, RichProgressBar
-from cotrain.utils.torch import seed_all
+from cotrain.utils.torch import set_seed
 from pydantic import BaseModel
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
 from yaml.loader import SafeLoader
 
-from aicode.pretrain.component import PretrainDatasetRefresh
+from aicode.pretrain.component import PretrainDatasetRefresh, SaveModel
 from aicode.pretrain.data import PretrainCollator, PretrainDataset
 from aicode.pretrain.model import PretrainAiCodeModel
 from aicode.utils import load_notebooks_from_disk, split_notebooks
@@ -48,7 +48,7 @@ class ExperimentConfig(BaseModel):
 
 
 def main(cfg: ExperimentConfig):
-    seed_all(cfg.seed)
+    set_seed(cfg.seed)
     logger.info(f'Start Training, config:\n {cfg}')
 
     # tokenzier
@@ -87,11 +87,7 @@ def main(cfg: ExperimentConfig):
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg.lr)
 
     # compoents
-    components = [
-        RichInspect(),
-        RichProgressBar(),
-        PretrainDatasetRefresh(),
-    ]
+    components = [PretrainDatasetRefresh(), SaveModel()]
     # trainer
     trainer = Trainer(
         model,
@@ -105,7 +101,7 @@ def main(cfg: ExperimentConfig):
 
 
 if __name__ == '__main__':
-    debug = True
+    debug = False
     if debug:
         config = ExperimentConfig(
             data=DataConfig(data_path=Path('dataset/aicode-debug-100')),

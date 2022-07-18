@@ -6,7 +6,7 @@ import torch
 import yaml
 from cotrain import Trainer, TrainerConfig
 from cotrain.components import RichInspect, RichProgressBar
-from cotrain.utils.torch import seed_all
+from cotrain.utils.torch import set_seed
 from pydantic import BaseModel
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
@@ -52,7 +52,7 @@ class ExperimentConfig(BaseModel):
 
 
 def main(cfg: ExperimentConfig):
-    seed_all(cfg.seed)
+    set_seed(cfg.seed)
     logger.info(f'Start Training, config:\n {cfg}')
 
     # tokenzier
@@ -116,7 +116,7 @@ def main(cfg: ExperimentConfig):
 
 
 if __name__ == '__main__':
-    debug = True
+    debug = False
     if debug:
         config = ExperimentConfig(
             data=DataConfig(
